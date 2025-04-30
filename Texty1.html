@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Texty</title>
+  <style>
+    :root {
+      --snap-yellow: #fffc00;
+      --snap-black: #121212;
+      --snap-white: #fff;
+      --bubble-gray: #f5f5f5;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: var(--snap-white);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #topBar {
+      background: var(--snap-yellow);
+      color: var(--snap-black);
+      padding: 12px 16px;
+      font-weight: bold;
+      font-size: 1.2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    #messages {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .message-group {
+      margin-bottom: 12px;
+      max-width: 85%;
+    }
+
+    .pseudo {
+      font-size: 0.9rem;
+      font-weight: bold;
+      color: #555;
+      margin-bottom: 4px;
+      margin-left: 10px;
+    }
+
+    .message {
+      background-color: var(--bubble-gray);
+      padding: 10px 14px;
+      border-radius: 18px;
+      margin: 3px 0;
+      width: fit-content;
+      max-width: 100%;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    #inputForm {
+      display: flex;
+      padding: 10px;
+      background: var(--snap-white);
+      border-top: 1px solid #ddd;
+      position: sticky;
+      bottom: 0;
+    }
+
+    #inputMessage {
+      flex: 1;
+      padding: 10px 14px;
+      font-size: 1rem;
+      border-radius: 25px;
+      border: 1px solid #ccc;
+      margin-right: 10px;
+      outline: none;
+    }
+
+    #sendButton, #changePseudoButton {
+      background-color: var(--snap-black);
+      color: var(--snap-white);
+      border: none;
+      padding: 10px 16px;
+      border-radius: 25px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+
+    #changePseudoButton {
+      background-color: #333;
+      margin-left: 10px;
+    }
+
+    @media (max-width: 600px) {
+      .message {
+        font-size: 0.95rem;
+      }
+
+      #sendButton, #changePseudoButton {
+        font-size: 0.85rem;
+        padding: 8px 12px;
+      }
+
+      #inputMessage {
+        font-size: 0.95rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="topBar">
+    <div>Texty</div>
+    <button id="changePseudoButton">Pseudo</button>
+  </div>
+
+  <div id="messages"></div>
+
+  <form id="inputForm">
+    <input type="text" id="inputMessage" placeholder="Écris ton message..." autocomplete="off">
+    <button type="submit" id="sendButton">Envoyer</button>
+  </form>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      databaseURL: "https://texty-fr-default-rtdb.europe-west1.firebasedatabase.app"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const messagesRef = db.ref('messages');
+
+    function askPseudo() {
+      let newPseudo = prompt("Choisis ton pseudo :");
+      while (!newPseudo || newPseudo.trim() === "") {
+        newPseudo = prompt("Le pseudo est obligatoire !");
+      }
+      localStorage.setItem('pseudo', newPseudo.trim());
+      return newPseudo.trim();
+    }
+
+    let pseudo = localStorage.getItem('pseudo');
+    if (!pseudo) {
+      pseudo = askPseudo();
+    }
+
+    document.getElementById('changePseudoButton').addEventListener('click', function () {
+      pseudo = askPseudo();
+      alert('Ton pseudo a été changé en : ' + pseudo);
+    });
+
+    document.getElementById('inputForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const message = document.getElementById('inputMessage').value.trim();
+      if (message !== "") {
+        messagesRef.push({
+          pseudo: pseudo,
+          text: message,
+          timestamp: Date.now()
+        });
+        document.getElementById('inputMessage').value = '';
+      }
+    });
+
+    const messagesContainer = document.getElementById('messages');
+    let lastPseudo = null;
+
+    messagesRef.orderByChild('timestamp').on('child_added', function (snapshot) {
+      const data = snapshot.val();
+
+      if (data.pseudo !== lastPseudo) {
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'message-group';
+        groupDiv.setAttribute('data-pseudo', data.pseudo);
+
+        const pseudoDiv = document.createElement('div');
+        pseudoDiv.className = 'pseudo';
+        pseudoDiv.textContent = data.pseudo;
+        groupDiv.appendChild(pseudoDiv);
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        messageDiv.textContent = data.text;
+        groupDiv.appendChild(messageDiv);
+
+        messagesContainer.appendChild(groupDiv);
+      } else {
+        const lastGroup = [...messagesContainer.querySelectorAll('.message-group')].pop();
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        messageDiv.textContent = data.text;
+        lastGroup.appendChild(messageDiv);
+      }
+
+      lastPseudo = data.pseudo;
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    });
+  </script>
+</body>
+</html>
